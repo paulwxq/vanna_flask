@@ -1,0 +1,39 @@
+.env
+venv
+.DS_Store
+__pycache__
+
+# 忽略 Python 缓存和虚拟环境
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env
+.venv
+
+# 忽略日志文件
+*.log
+
+# 忽略操作系统文件
+.DS_Store
+Thumbs.db
+chroma.*
+chroma.*.backup
+
+# 忽略编译生成文件
+*.class
+*.o
+*.exe
+
+# 忽略数据库文件
+*.db
+*.sqlite
+
+# 忽略 node_modules（前端项目）
+node_modules/
+
+# 忽略 JetBrains IDE 配置
+.idea/
+
+# 忽略UUID格式的目录（通常是临时文件或缓存）
+[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/
