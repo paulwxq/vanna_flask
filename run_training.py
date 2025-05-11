@@ -8,7 +8,6 @@ from vanna_trainer import (
     train_sql_example,
     train_question_sql_pair,
 )
-from chroma_cleaner import clear_chroma_database
 
 def read_file_by_delimiter(filepath, delimiter="---"):
     """通用读取：将文件按分隔符切片为多个段落"""
