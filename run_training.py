@@ -211,7 +211,6 @@ def main():
     train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_1"])
     train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_2"])
 
-   
 
 if __name__ == "__main__":
     main()
