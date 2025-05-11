@@ -6,7 +6,8 @@ from flask import Flask, jsonify, Response, request, redirect, url_for
 import flask
 import os
 from cache import MemoryCache
-from vanna_config import vn, init_db_connection
+# from vanna_config import vn, init_db_connection
+from vanna_pgvector_qwen import vn, init_db_connection
 
 app = Flask(__name__, static_url_path='')
 
@@ -43,7 +44,7 @@ def requires_cache(fields):
 def generate_questions():
     return jsonify({
         "type": "question_list", 
-        "questions": vn.generate_questions(),
+        "questions": vn.generate_questions(allow_llm_to_see_data=True),
         "header": "Here are some questions you can ask:"
         })
 
@@ -55,7 +56,7 @@ def generate_sql():
         return jsonify({"type": "error", "error": "No question provided"})
 
     id = cache.generate_id(question=question)
-    sql = vn.generate_sql(question=question)
+    sql = vn.generate_sql(question=question, allow_llm_to_see_data=True)
 
     cache.set(id=id, field='question', value=question)
     cache.set(id=id, field='sql', value=sql)

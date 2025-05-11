@@ -1,6 +1,7 @@
 # vanna_trainer.py
 
-from vanna_config import vn, init_db_connection
+# from vanna_config import vn, init_db_connection
+from vanna_pgvector_qwen import vn, init_db_connection
 
 # 初始化数据库连接
 init_db_connection()
