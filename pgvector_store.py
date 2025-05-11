@@ -1,7 +1,16 @@
 import psycopg2
+import os
 import pandas as pd
-from typing import List
+from typing import List, Dict, Any, Optional, Union, Tuple
 from vanna.base import VannaBase
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
+
+# 日志级别设置
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+VERBOSE = LOG_LEVEL.upper() in ['DEBUG', 'TRACE']
 
 
 class PgVectorStore(VannaBase):
@@ -71,14 +80,17 @@ class PgVectorStore(VannaBase):
             embedding = self._embed(content)
             
             # 调试信息：检查嵌入向量
-            print(f"\n===调试: 数据库插入===")
-            print(f"数据类型: {data_type}")
-            print(f"嵌入向量类型: {type(embedding)}")
-            if isinstance(embedding, list):
-                print(f"嵌入向量长度: {len(embedding)}")
-                print(f"嵌入向量前5个元素: {embedding[:5]}")
+            if VERBOSE:
+                print(f"\n===调试: 数据库插入===")
+                print(f"数据类型: {data_type}")
+                print(f"嵌入向量类型: {type(embedding)}")
+                if isinstance(embedding, list):
+                    print(f"嵌入向量长度: {len(embedding)}")
+                    print(f"嵌入向量前5个元素: {embedding[:5]}")
+                else:
+                    print(f"警告: 嵌入向量不是列表类型! 而是 {type(embedding)}")
             else:
-                print(f"警告: 嵌入向量不是列表类型! 而是 {type(embedding)}")
+                print(f"[INFO] 插入数据 (类型: {data_type})")
             
             with self.conn.cursor() as cur:
                 try:
@@ -86,19 +98,80 @@ class PgVectorStore(VannaBase):
                         f"INSERT INTO {self.table_name} (type, content, embedding) VALUES (%s, %s, %s)",
                         (data_type, content, embedding)
                     )
-                    print("SQL插入执行成功，准备提交...")
+                    if VERBOSE:
+                        print("SQL插入执行成功，准备提交...")
                     self.conn.commit()
-                    print("事务提交成功")
+                    if VERBOSE:
+                        print("事务提交成功")
                 except Exception as e:
-                    print(f"SQL执行或提交错误: {str(e)}")
+                    print(f"[ERROR] SQL执行或提交错误: {str(e)}")
                     self.conn.rollback()
-                    print("事务已回滚")
+                    if VERBOSE:
+                        print("事务已回滚")
                     raise
             return "ok"
         except Exception as e:
             self.conn.rollback()
-            print(f"_insert方法最终错误: {str(e)}")
+            print(f"[ERROR] _insert方法最终错误: {str(e)}")
             raise Exception(f"插入数据失败: {e}")
+    
+    def _batch_insert(self, items: List[Dict[str, Any]]) -> bool:
+        """批量插入数据
+        
+        Args:
+            items: 包含type、content和embedding的项目列表
+            
+        Returns:
+            bool: 是否成功
+        """
+        if not items:
+            return True
+            
+        print(f"[INFO] 批量插入 {len(items)} 条数据")
+        
+        try:
+            with self.conn.cursor() as cur:
+                # 构建批量插入语句
+                values_part = []
+                params = []
+                
+                for item in items:
+                    values_part.append("(%s, %s, %s)")
+                    params.extend([
+                        item['type'], 
+                        item['content'], 
+                        item['embedding']
+                    ])
+                
+                query = f"""
+                    INSERT INTO {self.table_name} (type, content, embedding) 
+                    VALUES {','.join(values_part)}
+                """
+                
+                # 执行批量插入
+                cur.execute(query, params)
+                self.conn.commit()
+                
+                print(f"[INFO] 成功批量插入 {len(items)} 条数据")
+                return True
+                
+        except Exception as e:
+            self.conn.rollback()
+            print(f"[ERROR] 批量插入失败: {str(e)}")
+            
+            # 如果批量失败，尝试逐条插入
+            print("[INFO] 尝试逐条插入...")
+            success_count = 0
+            
+            for item in items:
+                try:
+                    self._insert(item['type'], item['content'])
+                    success_count += 1
+                except Exception as item_e:
+                    print(f"[ERROR] 逐条插入项目 {success_count+1} 失败: {str(item_e)}")
+            
+            print(f"[INFO] 逐条插入完成, 成功: {success_count}/{len(items)}")
+            return success_count > 0
 
     def add_ddl(self, ddl: str, **kwargs) -> str:
         return self._insert("ddl", ddl)
@@ -108,14 +181,78 @@ class PgVectorStore(VannaBase):
 
     def add_question_sql(self, question: str, sql: str, **kwargs) -> str:
         return self._insert("question_sql", f"{question} :: {sql}")
+    
+    def add_batch(self, batch: List[Dict[str, Any]], **kwargs) -> bool:
+        """批量添加数据
+        
+        Args:
+            batch: 包含要批量添加的数据项列表，每项必须有type和content字段
+            
+        Returns:
+            bool: 是否成功
+        """
+        if not batch:
+            return True
+            
+        # 准备批处理项
+        items_to_insert = []
+        success_count = 0
+        error_count = 0
+        
+        # 单独处理每条记录的嵌入向量生成
+        for item in batch:
+            data_type = item.get('type')
+            
+            if data_type == 'question_sql':
+                content = f"{item.get('question', '')} :: {item.get('sql', '')}"
+            else:
+                content = item.get('content', '')
+            
+            # 单独生成嵌入向量，处理可能的长度错误
+            try:
+                if VERBOSE:
+                    print(f"[INFO] 处理 {data_type} 项目 {len(content)} 字符")
+                    
+                if len(content) > 2048:  # 检查文本长度是否超过API限制
+                    print(f"[WARNING] 文本长度 {len(content)} 超出API限制(2048)，将被截断")
+                    content_truncated = content[:2048]  # 截断文本以适应API限制
+                    embedding = self._embed(content_truncated)
+                    print(f"[INFO] 成功生成已截断文本的嵌入向量")
+                else:
+                    embedding = self._embed(content)
+                
+                # 添加到批处理列表
+                items_to_insert.append({
+                    'type': data_type,
+                    'content': content,  # 保存原始内容，即使嵌入向量是从截断文本生成的
+                    'embedding': embedding
+                })
+                success_count += 1
+                
+            except Exception as e:
+                print(f"[ERROR] 为 {data_type} 项目生成嵌入向量失败: {str(e)}")
+                error_count += 1
+                # 继续处理下一条记录，不影响整个批次
+        
+        print(f"[INFO] 嵌入向量生成完成: 成功 {success_count}/{len(batch)}, 失败 {error_count}/{len(batch)}")
+        
+        if not items_to_insert:
+            print("[WARNING] 没有成功生成嵌入向量的项目，跳过数据库插入")
+            return False
+            
+        # 批量写入数据库
+        return self._batch_insert(items_to_insert)
 
     def get_similar_question_sql(self, question: str, **kwargs) -> list:
         try:
             embedding = self._embed(question)
             
             # 调试信息
-            print(f"\n===调试: 相似向量查询===")
-            print(f"查询向量长度: {len(embedding)}")
+            if VERBOSE:
+                print(f"\n===调试: 相似向量查询===")
+                print(f"查询向量长度: {len(embedding)}")
+            else:
+                print(f"[INFO] 查询相似问题 (文本长度: {len(question)})")
             
             with self.conn.cursor() as cur:
                 # 修改查询语法，使用正确的向量类型转换
@@ -126,7 +263,8 @@ class PgVectorStore(VannaBase):
                     WHERE type = 'question_sql'
                     ORDER BY embedding <-> '{embedding_str}'::vector LIMIT 5
                 """
-                print(f"执行查询: {query[:100]}...")
+                if VERBOSE:
+                    print(f"执行查询: {query[:100]}...")
                 cur.execute(query)
                 rows = cur.fetchall()
             
@@ -145,7 +283,7 @@ class PgVectorStore(VannaBase):
             return results
         except Exception as e:
             self.conn.rollback()
-            print(f"查询相似问题失败详情: {str(e)}")
+            print(f"[ERROR] 查询相似问题失败: {str(e)}")
             raise Exception(f"查询相似问题失败: {e}")
 
     def get_related_ddl(self, question: str, **kwargs) -> list:

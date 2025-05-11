@@ -1,13 +1,16 @@
 # run_training.py
-
 import os
 import time
+import re
 from vanna_trainer import (
     train_ddl,
     train_documentation,
     train_sql_example,
     train_question_sql_pair,
+    flush_training,
+    shutdown_trainer
 )
+from tools.chroma_cleaner import clear_chroma_database
 
 def read_file_by_delimiter(filepath, delimiter="---"):
     """通用读取：将文件按分隔符切片为多个段落"""
@@ -15,6 +18,43 @@ def read_file_by_delimiter(filepath, delimiter="---"):
         content = f.read()
     blocks = [block.strip() for block in content.split(delimiter) if block.strip()]
     return blocks
+
+def read_markdown_file_by_sections(filepath):
+    """专门用于Markdown文件：按标题(#、##、###)分割文档
+    
+    Args:
+        filepath (str): Markdown文件路径
+        
+    Returns:
+        list: 分割后的Markdown章节列表
+    """
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+    
+    # 确定文件是否为Markdown
+    is_markdown = filepath.lower().endswith('.md') or filepath.lower().endswith('.markdown')
+    
+    if not is_markdown:
+        # 非Markdown文件使用默认的---分隔
+        return read_file_by_delimiter(filepath, "---")
+    
+    # 直接按照标题级别分割内容，处理#、##和###
+    sections = []
+    
+    # 匹配所有级别的标题（#、##或###开头）
+    header_pattern = r'(?:^|\n)((?:#|##|###)[^#].*?)(?=\n(?:#|##|###)[^#]|\Z)'
+    all_sections = re.findall(header_pattern, content, re.DOTALL)
+    
+    for section in all_sections:
+        section = section.strip()
+        if section:
+            sections.append(section)
+    
+    # 处理没有匹配到标题的情况
+    if not sections and content.strip():
+        sections = [content.strip()]
+        
+    return sections
 
 def train_ddl_statements(ddl_file):
     """训练DDL语句
@@ -41,12 +81,35 @@ def train_documentation_blocks(doc_file):
     if not os.path.exists(doc_file):
         print(f"❌ 文档文件不存在: {doc_file}")
         return
-    for idx, doc in enumerate(read_file_by_delimiter(doc_file, "---"), start=1):
-        try:
-            print(f"\n🚀 文档训练 {idx}")
-            train_documentation(doc)
-        except Exception as e:
-            print(f"❌ 错误：文档 #{idx} - {e}")
+    
+    # 检查是否为Markdown文件
+    is_markdown = doc_file.lower().endswith('.md') or doc_file.lower().endswith('.markdown')
+    
+    if is_markdown:
+        # 使用Markdown专用分割器
+        sections = read_markdown_file_by_sections(doc_file)
+        print(f"🔍 Markdown文档已分割为 {len(sections)} 个章节")
+        
+        for idx, section in enumerate(sections, start=1):
+            try:
+                section_title = section.split('\n', 1)[0].strip()
+                print(f"\n🚀 Markdown章节训练 {idx}: {section_title}")
+                
+                # 检查部分长度并提供警告
+                if len(section) > 2000:
+                    print(f"⚠️ 章节 {idx} 长度为 {len(section)} 字符，接近API限制(2048)")
+                
+                train_documentation(section)
+            except Exception as e:
+                print(f"❌ 错误：章节 #{idx} - {e}")
+    else:
+        # 非Markdown文件使用传统的---分隔
+        for idx, doc in enumerate(read_file_by_delimiter(doc_file, "---"), start=1):
+            try:
+                print(f"\n🚀 文档训练 {idx}")
+                train_documentation(doc)
+            except Exception as e:
+                print(f"❌ 错误：文档 #{idx} - {e}")
 
 def train_sql_examples(sql_file):
     """训练SQL示例
@@ -187,28 +250,33 @@ def main():
     }
 
     # 添加DDL语句训练
-    train_ddl_statements(TRAINING_FILES["ddl_1"])
-    train_ddl_statements(TRAINING_FILES["ddl_2"])
-    train_ddl_statements(TRAINING_FILES["ddl_3"])
+    # train_ddl_statements(TRAINING_FILES["ddl_1"])
+    # train_ddl_statements(TRAINING_FILES["ddl_2"])
+    # train_ddl_statements(TRAINING_FILES["ddl_3"])
 
     # 添加文档结构训练
     train_documentation_blocks(TRAINING_FILES["doc_1"])
     train_documentation_blocks(TRAINING_FILES["doc_2"])
-    train_documentation_blocks(TRAINING_FILES["doc_3"])
-    train_documentation_blocks(TRAINING_FILES["doc_4"])
+    # train_documentation_blocks(TRAINING_FILES["doc_3"])
+    # train_documentation_blocks(TRAINING_FILES["doc_4"])
 
-    # 添加SQL示例训练
-    train_sql_examples(TRAINING_FILES["sql_1"])
-    train_sql_examples(TRAINING_FILES["sql_2"])
+    # # 添加SQL示例训练
+    # train_sql_examples(TRAINING_FILES["sql_1"])
+    # train_sql_examples(TRAINING_FILES["sql_2"])
 
-    # 添加问答对训练, 包含冒号
-    train_question_sql_pairs(TRAINING_FILES["qs_colon_1"])
-    train_question_sql_pairs(TRAINING_FILES["qs_colon_2"])
-    train_question_sql_pairs(TRAINING_FILES["qs_colon_3"])
+    # # 添加问答对训练, 包含冒号
+    # train_question_sql_pairs(TRAINING_FILES["qs_colon_1"])
+    # train_question_sql_pairs(TRAINING_FILES["qs_colon_2"])
+    # train_question_sql_pairs(TRAINING_FILES["qs_colon_3"])
 
-    # 添加问答对训练, 不包含冒号
-    train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_1"])
-    train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_2"])
+    # # 添加问答对训练, 不包含冒号
+    # train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_1"])
+    # train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_2"])
+    
+    # 训练结束，刷新和关闭批处理器
+    print("\n===== 训练完成，处理剩余批次 =====")
+    flush_training()
+    shutdown_trainer()
 
 
 if __name__ == "__main__":
