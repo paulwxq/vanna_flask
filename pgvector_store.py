@@ -44,7 +44,7 @@ class PgVectorStore(VannaBase):
                 
                 # 然后重新创建表
                 self._init_table()
-                print(f"表 {self.table_name} 已重新创建，向量维度为1536")
+                print(f"表 {self.table_name} 已重新创建，向量维度为1024")
                 return True
         except Exception as e:
             self.conn.rollback()
@@ -62,7 +62,7 @@ class PgVectorStore(VannaBase):
                         id SERIAL PRIMARY KEY,
                         type TEXT,
                         content TEXT,
-                        embedding VECTOR(1536)
+                        embedding VECTOR(1024)
                     )
                 """)
                 self.conn.commit()
@@ -215,7 +215,16 @@ class PgVectorStore(VannaBase):
                     
                 if len(content) > 2048:  # 检查文本长度是否超过API限制
                     print(f"[WARNING] 文本长度 {len(content)} 超出API限制(2048)，将被截断")
+                    
+                    # 打印被截断的文本的详细信息
+                    print(f"[DEBUG] 原始文本的前100个字符: '{content[:100]}...'")
+                    print(f"[DEBUG] 原始文本的后100个字符: '...{content[-100:]}'")
+                    
                     content_truncated = content[:2048]  # 截断文本以适应API限制
+                    
+                    print(f"[DEBUG] 截断后文本的前100个字符: '{content_truncated[:100]}...'")
+                    print(f"[DEBUG] 截断后文本的后100个字符: '...{content_truncated[-100:]}'")
+                    
                     embedding = self._embed(content_truncated)
                     print(f"[INFO] 成功生成已截断文本的嵌入向量")
                 else:

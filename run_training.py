@@ -238,8 +238,8 @@ def main():
         "ddl_3": os.path.join(BASE_PATH, "relationships_0419.sql"),
         "doc_1": os.path.join(BASE_PATH, "数据仓库表结构文档 _CN.md"),
         "doc_2": os.path.join(BASE_PATH, "Data_Warehouse_Table_Doc_English_Vers.md"),
-        "doc_3": os.path.join(BASE_PATH, "table_detail_doc_cn.txt"),
-        "doc_4": os.path.join(BASE_PATH, "table_detail_doc_en.txt"),
+        "doc_3": os.path.join(BASE_PATH, "table_detail_doc_cn.md"),
+        "doc_4": os.path.join(BASE_PATH, "table_detail_doc_en.md"),
         "sql_1": os.path.join(BASE_PATH, "SQL_Example_CN.txt"),
         "sql_2": os.path.join(BASE_PATH, "SQL_Example_EN.txt"),
         "qs_colon_1": os.path.join(BASE_PATH, "Question_SQL_Colon_EN.txt"),
@@ -250,28 +250,28 @@ def main():
     }
 
     # 添加DDL语句训练
-    # train_ddl_statements(TRAINING_FILES["ddl_1"])
-    # train_ddl_statements(TRAINING_FILES["ddl_2"])
-    # train_ddl_statements(TRAINING_FILES["ddl_3"])
+    train_ddl_statements(TRAINING_FILES["ddl_1"])
+    train_ddl_statements(TRAINING_FILES["ddl_2"])
+    train_ddl_statements(TRAINING_FILES["ddl_3"])
 
-    # 添加文档结构训练
+    #添加文档结构训练
     train_documentation_blocks(TRAINING_FILES["doc_1"])
     train_documentation_blocks(TRAINING_FILES["doc_2"])
-    # train_documentation_blocks(TRAINING_FILES["doc_3"])
-    # train_documentation_blocks(TRAINING_FILES["doc_4"])
+    train_documentation_blocks(TRAINING_FILES["doc_3"])
+    train_documentation_blocks(TRAINING_FILES["doc_4"])
 
-    # # 添加SQL示例训练
-    # train_sql_examples(TRAINING_FILES["sql_1"])
-    # train_sql_examples(TRAINING_FILES["sql_2"])
+    # 添加SQL示例训练
+    train_sql_examples(TRAINING_FILES["sql_1"])
+    train_sql_examples(TRAINING_FILES["sql_2"])
 
-    # # 添加问答对训练, 包含冒号
-    # train_question_sql_pairs(TRAINING_FILES["qs_colon_1"])
-    # train_question_sql_pairs(TRAINING_FILES["qs_colon_2"])
-    # train_question_sql_pairs(TRAINING_FILES["qs_colon_3"])
+    # 添加问答对训练, 包含冒号
+    train_question_sql_pairs(TRAINING_FILES["qs_colon_1"])
+    train_question_sql_pairs(TRAINING_FILES["qs_colon_2"])
+    train_question_sql_pairs(TRAINING_FILES["qs_colon_3"])
 
-    # # 添加问答对训练, 不包含冒号
-    # train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_1"])
-    # train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_2"])
+    # 添加问答对训练, 不包含冒号
+    train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_1"])
+    train_formatted_question_sql_pairs(TRAINING_FILES["formatted_qs_2"])
     
     # 训练结束，刷新和关闭批处理器
     print("\n===== 训练完成，处理剩余批次 =====")

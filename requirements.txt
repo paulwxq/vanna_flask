@@ -3,3 +3,5 @@ vanna[chromadb,postgres,mysql,ollama,openai]
 dashscope
 db-dtypes
 python-dotenv
+requests
+psycopg2-binary

@@ -200,5 +200,19 @@ def get_question_history():
 def root():
     return app.send_static_file('index.html')
 
+# 修改初始化部分，移除检查Ollama模型的代码
+def init_app():
+    """初始化应用程序环境和模型"""
+    try:
+        # 连接数据库
+        init_db_connection()
+        print("✅ 数据库连接已初始化")
+    except Exception as e:
+        print(f"⚠️ 初始化时出错: {e}")
+
+# 在应用启动前执行初始化
+with app.app_context():
+    init_app()
+
 if __name__ == '__main__':
     app.run(debug=True)
