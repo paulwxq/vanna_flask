@@ -6,30 +6,15 @@ from flask import Flask, jsonify, Response, request, redirect, url_for
 import flask
 import os
 from cache import MemoryCache
-from vanna.qianwen import QianWenAI_Chat
-from vanna.chromadb import ChromaDB_VectorStore
+from vanna_config import vn, init_db_connection
 
 app = Flask(__name__, static_url_path='')
 
 # SETUP
 cache = MemoryCache()
 
-# from vanna.local import LocalContext_OpenAI
-# vn = LocalContext_OpenAI()
-
-class MyVanna(ChromaDB_VectorStore, QianWenAI_Chat):  # 修正注释和缩进
-    def __init__(self, config=None):
-        ChromaDB_VectorStore.__init__(self, config=config)  # 修正缩进
-        QianWenAI_Chat.__init__(self, config=config)        # 修正缩进
-
-vn = MyVanna(config={'api_key': 'sk-db68e37f00974031935395315bfe07f0', 'model': 'qwen-max'})  # 修正右括号闭合
-vn.connect_to_postgres(
-    host='127.0.0.1',
-    dbname='works_dw',        # 修正 db[@]e[@database' → dbname='database'
-    user='postgres',          # 修正 use>= → user=
-    password='postgres',
-    port=5432
-)
+# 初始化数据库连接
+init_db_connection()
 
 # NO NEED TO CHANGE ANYTHING BELOW THIS LINE
 def requires_cache(fields):
