@@ -1,4 +1,5 @@
 # vanna-flask
+# embedding 模型使用本地，LLM使用阿里云QWEN，向量数据库使用PgVector
 
 # 创建向量数据库
 create database pgvector_store;
